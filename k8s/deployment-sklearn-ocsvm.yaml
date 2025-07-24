@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sklearn-ocsvm-service
+  namespace: pfe-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sklearn-ocsvm-service
+  template:
+    metadata:
+      labels:
+        app: sklearn-ocsvm-service
+    spec:
+      containers:
+        - name: sklearn-ocsvm-service
+          image: eyaboulaaba/pfe:sklearn-ocsvm-service  # Image depuis Docker Hub
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+          env:
+            - name: FLASK_RUN_HOST
+              value: "0.0.0.0"
+            - name: FLASK_RUN_PORT
+              value: "5002"
+            - name: SPACY_API_URL
+              value: "http://spacy-service:5003"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sklearn-ocsvm-service
+  namespace: pfe-app
+spec:
+  selector:
+    app: sklearn-ocsvm-service
+  ports:
+    - protocol: TCP
+      port: 5002
+      targetPort: 5002
+  type: ClusterIP

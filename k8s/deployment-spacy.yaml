@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spacy-service
+  namespace: pfe-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spacy-service
+  template:
+    metadata:
+      labels:
+        app: spacy-service
+    spec:
+      containers:
+        - name: spacy-service
+          image: eyaboulaaba/pfe:spacy-service  # Image depuis Docker Hub
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5003
+          env:
+            - name: FLASK_RUN_HOST
+              value: "0.0.0.0"
+            - name: FLASK_RUN_PORT
+              value: "5003"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spacy-service
+  namespace: pfe-app
+spec:
+  selector:
+    app: spacy-service
+  ports:
+    - protocol: TCP
+      port: 5003
+      targetPort: 5003
+  type: ClusterIP

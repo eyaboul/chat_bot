@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-init
+  namespace: pfe-app
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: ollama-init
+        image: ollama/ollama:latest
+        command: 
+        - sh
+        - -c
+        - |
+          echo "Attente du démarrage d'Ollama..."
+          sleep 30
+          echo "Téléchargement du modèle qwen2:0.5b..."
+          OLLAMA_HOST=http://ollama-service:11434 ollama pull qwen2:0.5b
+          echo "Modèle téléchargé avec succès!"
+        env:
+        - name: OLLAMA_HOST
+          value: "http://ollama-service:11434"
+        volumeMounts:
+        - name: ollama-data
+          mountPath: /root/.ollama
+      volumes:
+      - name: ollama-data
+        persistentVolumeClaim:
+          claimName: ollama-data-pvc
+  backoffLimit: 3

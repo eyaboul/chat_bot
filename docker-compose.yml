@@ -1,0 +1,158 @@
+services:
+  # Service Spacy
+  spacy_service:
+    image: spacy-service:latest
+    build:
+      context: ./Spacy
+      dockerfile: Dockerfile
+    container_name: spacy_container
+    networks:
+      - my_app_network
+    ports:
+      - "5003:5003"
+    restart: unless-stopped
+    environment:
+      - FLASK_RUN_HOST=0.0.0.0
+      - FLASK_RUN_PORT=5003
+
+  # Service Scikit-learn-IF (Isolation Forest)
+  sklearn-IF_service:
+    image: sklearn-if-service:latest
+    build:
+      context: ./Sklearn-IF
+      dockerfile: Dockerfile
+    container_name: sklearn_if_container
+    networks:
+      - my_app_network
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+    environment:
+      - FLASK_RUN_HOST=0.0.0.0
+      - FLASK_RUN_PORT=5001
+      - SPACY_API_URL=http://spacy_service:5003
+    depends_on:
+      - spacy_service
+
+  # Service Scikit-learn-OCSVM (One-Class SVM)
+  sklearn-OCSVM_service:
+    image: sklearn-ocsvm-service:latest
+    build:
+      context: ./Sklearn-OCSVM
+      dockerfile: Dockerfile
+    container_name: sklearn_ocsvm_container
+    networks:
+      - my_app_network
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+    environment:
+      - FLASK_RUN_HOST=0.0.0.0
+      - FLASK_RUN_PORT=5002
+      - SPACY_API_URL=http://spacy_service:5003
+    depends_on:
+      - spacy_service
+
+  # NOUVEAU SERVICE : Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_container
+    networks:
+      - my_app_network
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0:11434
+    restart: unless-stopped
+
+  # Service d'initialisation Ollama (simplifié)
+  ollama_init:
+    image: ollama/ollama:latest
+    container_name: ollama_init_container
+    networks:
+      - my_app_network
+    depends_on:
+      - ollama # Dépendance simple sans condition
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    command: >
+      sh -c "
+        echo 'Attente du démarrage d Ollama...' &&
+        sleep 60 &&
+        echo 'Téléchargement du modèle...' &&
+        OLLAMA_HOST=http://ollama:11434 ollama pull qwen2:0.5b &&
+        echo 'Terminé!'
+      "
+    restart: "no"
+
+  # Service Chatbot LLM (dépendances simplifiées)
+  chatbot_web:
+    image: chatbot-web:latest
+    build:
+      context: ./model_LLM
+      dockerfile: Dockerfile
+    container_name: chatbot_llm_container
+    networks:
+      - my_app_network
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - FLASK_RUN_HOST=0.0.0.0
+      - FLASK_RUN_PORT=8000
+      - SPACY_API_URL=http://spacy_service:5003
+      - SKLEARN_API_URL_5001=http://sklearn-IF_service:5001
+      - SKLEARN_API_URL_5002=http://sklearn-OCSVM_service:5002
+    depends_on:
+      - spacy_service
+      - sklearn-IF_service
+      - sklearn-OCSVM_service
+      - ollama # Dépendance simple
+
+  # Service Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: my_prometheus
+    networks:
+      - my_app_network
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - spacy_service
+      - sklearn-IF_service
+      - sklearn-OCSVM_service
+      - chatbot_web
+
+  # Service Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: my_grafana
+    networks:
+      - my_app_network
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+# Définition des volumes Docker
+volumes:
+  ollama_data:
+    driver: local
+
+# Définition du réseau Docker personnalisé
+networks:
+  my_app_network:
+    driver: bridge

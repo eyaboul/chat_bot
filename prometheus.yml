@@ -1,0 +1,25 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s # Prometheus va tenter de collecter les métriques toutes les 15 secondes
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090'] # Les métriques de Prometheus lui-même
+
+  - job_name: 'spacy_service'
+    static_configs:
+      - targets: ['spacy_service:5003'] # Nom du service Docker Compose et son port interne
+
+  - job_name: 'sklearn_ocsvm_service'
+    static_configs:
+      - targets: ['sklearn-OCSVM_service:5002'] # Nom du service Docker Compose et son port interne
+
+  - job_name: 'sklearn_if_service'
+    static_configs:
+      - targets: ['sklearn-IF_service:5001'] # Si vous avez un service Isolation Forest
+                                                # (Port 5001 pour IF est un exemple basé sur des setups précédents)
+
+  - job_name: 'chatbot_web_service'
+    static_configs:
+      - targets: ['chatbot_web:8000'] # Si votre front-end Flask du chatbot expose aussi des métriques
