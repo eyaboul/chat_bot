@@ -29,7 +29,7 @@ pipeline {
             }
             steps {
                 script {
-                    // Définition des services à builder
+                    // Définition des services 
                     def services = [
                         'spacy-service': 'Spacy',
                         'sklearn-if-service': 'Sklearn-IF',
