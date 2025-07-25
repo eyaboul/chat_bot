@@ -14,18 +14,10 @@ spec:
         app: sklearn-if-service
     spec:
       containers:
-        - name: sklearn-if-service
-          image: eyaboulaaba/pfe:sklearn-if-service  # Image depuis Docker Hub
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 5001
-          env:
-            - name: FLASK_RUN_HOST
-              value: "0.0.0.0"
-            - name: FLASK_RUN_PORT
-              value: "5001"
-            - name: SPACY_API_URL
-              value: "http://spacy-service:5003"
+      - name: sklearn-if-service
+        image: eyaboulaaba/pfe:sklearn-if-service-latest
+        ports:
+        - containerPort: 5001  # Vérifiez le port dans votre Dockerfile
 ---
 apiVersion: v1
 kind: Service
@@ -36,7 +28,6 @@ spec:
   selector:
     app: sklearn-if-service
   ports:
-    - protocol: TCP
-      port: 5001
-      targetPort: 5001
+  - port: 5001
+    targetPort: 5001
   type: ClusterIP
