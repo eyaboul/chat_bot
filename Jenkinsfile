@@ -20,48 +20,42 @@ pipeline {
         }
         
         stage('Build & Push Images') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
-                    branch 'develop'
-                }
-            }
             steps {
                 script {
-                    // Définition des services 
                     def services = [
                         'spacy-service': 'Spacy',
-                        'sklearn-if-service': 'Sklearn-IF',
-                        'sklearn-ocsvm-service': 'Sklearn-OCSVM',
-                        'chatbot-web': 'model_LLM'
+                        'sklearn-ocsvm-service': 'Sklearn-OCSVM'
                     ]
 
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        // Login Docker Hub
-                        sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
-
-                        // Build et push chaque service
+                        
                         services.each { serviceName, servicePath ->
-                            def imageTagTimestamp = "${DOCKER_HUB_REPO}:${serviceName}-${BRANCH_NAME_CLEAN}-${BUILD_TIMESTAMP}"
-                            def imageTagLatest = "${DOCKER_HUB_REPO}:${serviceName}-latest"
+                            def timestampTag = "${DOCKER_HUB_REPO}:${serviceName}-${BUILD_TAG}"
+                            def latestTag = "${DOCKER_HUB_REPO}:${serviceName}-latest"
                             
-                            echo "🏗️ Build & push image: ${imageTagTimestamp} from ${servicePath}"
+                            echo "🏗️ Building: ${timestampTag} from ${servicePath}"
                             
-                            // Build avec tag timestamp
-                            sh "docker build -t ${imageTagTimestamp} ./${servicePath}"
+                            // Build
+                            sh "docker build -t ${timestampTag} ./${servicePath}"
+                            
+                            // Login avant chaque push
+                            sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+                            
+                            // Push timestamp version
+                            sh "docker push ${timestampTag}"
                             
                             // Tag latest
-                            sh "docker tag ${imageTagTimestamp} ${imageTagLatest}"
+                            sh "docker tag ${timestampTag} ${latestTag}"
                             
-                            // Push les deux tags
-                            sh "docker push ${imageTagTimestamp}"
-                            sh "docker push ${imageTagLatest}"
+                            // Re-login pour le deuxième push
+                            sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                             
-                            echo "✅ Service ${serviceName} pushé avec succès"
+                            // Push latest
+                            sh "docker push ${latestTag}"
+                            
+                            echo "✅ ${serviceName} completed"
                         }
                         
-                        // Logout Docker
                         sh "docker logout"
                     }
                 }
