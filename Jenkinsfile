@@ -25,7 +25,8 @@ pipeline {
                     def services = [
                         'spacy-service': 'Spacy',
                         'sklearn-ocsvm-service': 'Sklearn-OCSVM',
-                        'sklearn-if-service': 'Sklearn-IF'  // ✅ AJOUTER CETTE LIGNE
+                        'sklearn-if-service': 'Sklearn-IF',
+                        'chatbot-web-service': 'model_LLM'  // ✅ AJOUTER CETTE LIGNE
                     ]
 
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
@@ -120,6 +121,10 @@ pipeline {
                                 # Sklearn-IF Service
                                 kubectl create deployment sklearn-if-service --image=${DOCKER_HUB_REPO}:sklearn-if-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 kubectl expose deployment sklearn-if-service --port=5001 --target-port=5001 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                
+                                # Chatbot-Web Service
+                                kubectl create deployment chatbot-web-service --image=${DOCKER_HUB_REPO}:chatbot-web-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment chatbot-web-service --port=5004 --target-port=5004 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                             fi
                         '''
                         
@@ -129,6 +134,7 @@ pipeline {
                             kubectl set image deployment/spacy-service spacy-service=${DOCKER_HUB_REPO}:spacy-service-latest -n ${K8S_NAMESPACE} || echo "Deployment spacy-service non trouvé"
                             kubectl set image deployment/sklearn-ocsvm-service sklearn-ocsvm-service=${DOCKER_HUB_REPO}:sklearn-ocsvm-service-latest -n ${K8S_NAMESPACE} || echo "Deployment sklearn-ocsvm-service non trouvé"
                             kubectl set image deployment/sklearn-if-service sklearn-if-service=${DOCKER_HUB_REPO}:sklearn-if-service-latest -n ${K8S_NAMESPACE} || echo "Deployment sklearn-if-service non trouvé"
+                            kubectl set image deployment/chatbot-web-service chatbot-web-service=${DOCKER_HUB_REPO}:chatbot-web-service-latest -n ${K8S_NAMESPACE} || echo "Deployment chatbot-web-service non trouvé"
                         '''
                         
                         // Attendre le déploiement
@@ -136,6 +142,7 @@ pipeline {
                             echo "⏳ Attente du déploiement..."
                             kubectl rollout status deployment/spacy-service -n ${K8S_NAMESPACE} --timeout=300s || true
                             kubectl rollout status deployment/sklearn-ocsvm-service -n ${K8S_NAMESPACE} --timeout=300s || true
+                            kubectl rollout status deployment/chatbot-web-service -n ${K8S_NAMESPACE} --timeout=300s || true
                         '''
                     }
                 }
@@ -253,26 +260,29 @@ pipeline {
                     🔗 Services disponibles:
                     • kubectl port-forward service/spacy-service 5003:5003 -n ${K8S_NAMESPACE}
                     • kubectl port-forward service/sklearn-ocsvm-service 5002:5002 -n ${K8S_NAMESPACE}
-                    
+                    • kubectl port-forward service/sklearn-if-service 5001:5001 -n ${K8S_NAMESPACE}
+                    • kubectl port-forward service/chatbot-web-service 5004:5004 -n ${K8S_NAMESPACE}
+
                     💡 Pour accéder aux services:
                     • Spacy: http://localhost:5003
                     • Sklearn-OCSVM: http://localhost:5002
-                    """
+                    • Sklearn-IF: http://localhost:5001
+                    • Chatbot: http://localhost:5004
                 } else {
                     echo "✅ Build réussi pour la branche: ${env.BRANCH_NAME}"
-                }
-            }
+                }   echo "✅ Build réussi pour la branche: ${env.BRANCH_NAME}"
+            }   }
+        }   }
         }
-        
         failure {
             echo """
             ❌ PIPELINE ÉCHOUÉ!
-            
+            ❌ PIPELINE ÉCHOUÉ!
             🎯 Branche: ${env.BRANCH_NAME}
+            📦 Build: ${env.BUILD_NUMBER}}
             📦 Build: ${env.BUILD_NUMBER}
-            
             Vérifiez les logs pour identifier le problème.
-            """
-        }
-    }
-}
+            """ifiez les logs pour identifier le problème.
+        }   """
+    }   }
+}   }
