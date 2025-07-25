@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copy the current directory contents into the container at /app
 COPY analyse_spacy2.py ./
-COPY logs.csv ./
 COPY requirements.txt ./
 
 # Install Python dependencies
@@ -19,4 +18,4 @@ RUN python -m spacy download en_core_web_md
 EXPOSE 5003
 
 # Start the Ollama server in the background and then run the Python script
-CMD ["python3" ,"analyse_spacy2.py"] 
+CMD ["python3" ,"analyse_spacy2.py"]
