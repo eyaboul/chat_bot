@@ -249,7 +249,7 @@ pipeline {
         
         success {
             script {
-                if (env.BRANCH_NAME == 'master') {  // Changez 'main' en 'master'
+                if (env.BRANCH_NAME == 'master') {
                     echo """
                     ✅ DÉPLOIEMENT RÉUSSI!
                     
@@ -268,21 +268,28 @@ pipeline {
                     • Sklearn-OCSVM: http://localhost:5002
                     • Sklearn-IF: http://localhost:5001
                     • Chatbot: http://localhost:5004
+                    
+                    📊 Monitoring disponible:
+                    • kubectl port-forward service/grafana 3000:3000 -n monitoring
+                    • kubectl port-forward service/prometheus 9090:9090 -n monitoring
+                    """
                 } else {
                     echo "✅ Build réussi pour la branche: ${env.BRANCH_NAME}"
-                }   echo "✅ Build réussi pour la branche: ${env.BRANCH_NAME}"
-            }   }
-        }   }
+                }
+            }
         }
+        
         failure {
-            echo """
-            ❌ PIPELINE ÉCHOUÉ!
-            ❌ PIPELINE ÉCHOUÉ!
-            🎯 Branche: ${env.BRANCH_NAME}
-            📦 Build: ${env.BUILD_NUMBER}}
-            📦 Build: ${env.BUILD_NUMBER}
-            Vérifiez les logs pour identifier le problème.
-            """ifiez les logs pour identifier le problème.
-        }   """
-    }   }
-}   }
+            script {
+                echo """
+                ❌ PIPELINE ÉCHOUÉ!
+                
+                🎯 Branche: ${env.BRANCH_NAME}
+                📦 Build: ${env.BUILD_NUMBER}
+                
+                Vérifiez les logs pour identifier le problème.
+                """
+            }
+        }
+    }
+}
