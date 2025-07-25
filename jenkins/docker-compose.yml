@@ -1,17 +1,18 @@
 version: "3.8"
 services:
   jenkins:
-    build: .
+    image: jenkins/jenkins:lts
     container_name: jenkins
-    user: root # Ajoutez cette ligne pour résoudre les permissions
+    user: root # Nécessaire pour Docker
     ports:
-      - "8080:8080" # Interface web Jenkins
-      - "50000:50000" # Port pour les agents Jenkins
+      - "8080:8080"
+      - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-    restart: unless-stopped
+      - /var/run/docker.sock:/var/run/docker.sock # Partage Docker socket
     environment:
-      - JENKINS_OPTS=--httpPort=8080
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    restart: unless-stopped
 
 volumes:
   jenkins_home:
