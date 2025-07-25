@@ -24,7 +24,8 @@ pipeline {
                 script {
                     def services = [
                         'spacy-service': 'Spacy',
-                        'sklearn-ocsvm-service': 'Sklearn-OCSVM'
+                        'sklearn-ocsvm-service': 'Sklearn-OCSVM',
+                        'sklearn-if-service': 'Sklearn-IF'  // ✅ AJOUTER CETTE LIGNE
                     ]
 
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
@@ -41,7 +42,7 @@ pipeline {
                             // Login avant chaque push
                             sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                             
-                            // Push timestamp version
+                            
                             sh "docker push ${timestampTag}"
                             
                             // Tag latest
@@ -93,17 +94,32 @@ pipeline {
                         sh '''
                             if [ -d "k8s" ]; then
                                 echo "📦 Déploiement des manifests Kubernetes..."
-                                kubectl apply -f k8s/ -n ${K8S_NAMESPACE}
+                                
+                                # Appliquer SEULEMENT les fichiers dans k8s/ racine (pas le sous-dossier monitoring)
+                                for file in k8s/*.yaml k8s/*.yml; do
+                                    if [ -f "$file" ]; then
+                                        # Exclure les fichiers de monitoring
+                                        if [[ ! "$file" =~ "monitoring" ]] && [[ ! "$file" =~ "grafana" ]] && [[ ! "$file" =~ "prometheus" ]]; then
+                                            echo "Applying: $file"
+                                            kubectl apply -f "$file" -n ${K8S_NAMESPACE} || echo "⚠️ Failed to apply $file"
+                                        fi
+                                    fi
+                                done
+                                
                             else
-                                echo "⚠️ Dossier k8s/ non trouvé - création des ressources de base..."
+                                echo "⚠️ Dossier k8s/ non trouvé - création manuelle des services..."
                                 
                                 # Spacy Service
                                 kubectl create deployment spacy-service --image=${DOCKER_HUB_REPO}:spacy-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 kubectl expose deployment spacy-service --port=5003 --target-port=5003 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 
-                                # Sklearn-OCSVM Service
+                                # Sklearn-OCSVM Service  
                                 kubectl create deployment sklearn-ocsvm-service --image=${DOCKER_HUB_REPO}:sklearn-ocsvm-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 kubectl expose deployment sklearn-ocsvm-service --port=5002 --target-port=5002 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                
+                                # Sklearn-IF Service
+                                kubectl create deployment sklearn-if-service --image=${DOCKER_HUB_REPO}:sklearn-if-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment sklearn-if-service --port=5001 --target-port=5001 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                             fi
                         '''
                         
@@ -112,6 +128,7 @@ pipeline {
                             echo "🔄 Mise à jour des images..."
                             kubectl set image deployment/spacy-service spacy-service=${DOCKER_HUB_REPO}:spacy-service-latest -n ${K8S_NAMESPACE} || echo "Deployment spacy-service non trouvé"
                             kubectl set image deployment/sklearn-ocsvm-service sklearn-ocsvm-service=${DOCKER_HUB_REPO}:sklearn-ocsvm-service-latest -n ${K8S_NAMESPACE} || echo "Deployment sklearn-ocsvm-service non trouvé"
+                            kubectl set image deployment/sklearn-if-service sklearn-if-service=${DOCKER_HUB_REPO}:sklearn-if-service-latest -n ${K8S_NAMESPACE} || echo "Deployment sklearn-if-service non trouvé"
                         '''
                         
                         // Attendre le déploiement
@@ -173,10 +190,28 @@ pipeline {
                             # Créer le namespace monitoring
                             kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
                             
-                            # Déployer Grafana et Prometheus
-                            kubectl apply -f k8s/grafana-namespace.yaml || true
-                            kubectl apply -f k8s/grafana-deployment.yaml
-                            kubectl apply -f k8s/prometheus-deployment.yaml
+                            # Déployer les manifests de monitoring depuis le dossier k8s/monitoring/
+                            if [ -d "k8s/monitoring" ]; then
+                                echo "📊 Déploiement des manifests de monitoring..."
+                                
+                                # Appliquer tous les fichiers du dossier monitoring
+                                kubectl apply -f k8s/monitoring/ -n monitoring || echo "⚠️ Erreur lors du déploiement monitoring"
+                                
+                                echo "📊 Vérification du déploiement monitoring..."
+                                kubectl get pods -n monitoring || true
+                                kubectl get services -n monitoring || true
+                                
+                            else
+                                echo "⚠️ Dossier k8s/monitoring/ non trouvé - création manuelle..."
+                                
+                                # Créer Grafana manuellement
+                                kubectl create deployment grafana --image=grafana/grafana:latest -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment grafana --port=3000 --target-port=3000 --type=NodePort -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+                                
+                                # Créer Prometheus manuellement  
+                                kubectl create deployment prometheus --image=prom/prometheus:latest -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment prometheus --port=9090 --target-port=9090 --type=NodePort -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+                            fi
                             
                             echo "📊 Stack de monitoring déployée!"
                             echo "🔗 Grafana: kubectl port-forward service/grafana 3000:3000 -n monitoring"
