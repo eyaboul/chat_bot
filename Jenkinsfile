@@ -197,6 +197,12 @@ pipeline {
                                 # Appliquer tous les fichiers du dossier monitoring
                                 kubectl apply -f k8s/monitoring/ -n monitoring || echo "⚠️ Erreur lors du déploiement monitoring"
                                 
+                                # Redémarrer Prometheus pour charger la nouvelle config
+                                kubectl rollout restart deployment/prometheus -n monitoring || echo "Prometheus deployment not found"
+                                
+                                # Attendre que Prometheus soit prêt
+                                kubectl rollout status deployment/prometheus -n monitoring --timeout=60s || echo "Prometheus rollout timeout"
+                                
                                 echo "📊 Vérification du déploiement monitoring..."
                                 kubectl get pods -n monitoring || true
                                 kubectl get services -n monitoring || true
