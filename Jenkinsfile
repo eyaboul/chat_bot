@@ -153,6 +153,39 @@ pipeline {
                 }
             }
         }
+        
+        stage('Deploy Monitoring Stack') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    echo "📊 Déploiement de la stack de monitoring..."
+                    
+                    withCredentials([string(credentialsId: 'kubernetes-token', variable: 'K8S_TOKEN')]) {
+                        sh '''
+                            # Configuration kubectl
+                            kubectl config set-cluster docker-desktop --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true
+                            kubectl config set-credentials jenkins-user --token=$K8S_TOKEN
+                            kubectl config set-context jenkins-context --cluster=docker-desktop --user=jenkins-user
+                            kubectl config use-context jenkins-context
+                            
+                            # Créer le namespace monitoring
+                            kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+                            
+                            # Déployer Grafana et Prometheus
+                            kubectl apply -f k8s/grafana-namespace.yaml || true
+                            kubectl apply -f k8s/grafana-deployment.yaml
+                            kubectl apply -f k8s/prometheus-deployment.yaml
+                            
+                            echo "📊 Stack de monitoring déployée!"
+                            echo "🔗 Grafana: kubectl port-forward service/grafana 3000:3000 -n monitoring"
+                            echo "🔗 Prometheus: kubectl port-forward service/prometheus 9090:9090 -n monitoring"
+                        '''
+                    }
+                }
+            }
+        }
     }
     
     post {
