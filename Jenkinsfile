@@ -30,7 +30,7 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         
                         services.each { serviceName, servicePath ->
-                            def timestampTag = "${DOCKER_HUB_REPO}:${serviceName}-${BUILD_TAG}"
+                            def timestampTag = "${DOCKER_HUB_REPO}:${serviceName}-${BRANCH_NAME_CLEAN}-${BUILD_TIMESTAMP}"
                             def latestTag = "${DOCKER_HUB_REPO}:${serviceName}-latest"
                             
                             echo "🏗️ Building: ${timestampTag} from ${servicePath}"
