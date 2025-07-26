@@ -15,7 +15,9 @@ spec:
     spec:
       containers:
         - name: chatbot-web
-          image: eyaboulaaba/pfe:chatbot-web  # Image depuis Docker Hub
+          image: eyaboulaaba/pfe:chatbot-web-service-lates # Image depuis Docker Hub
+          
+
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

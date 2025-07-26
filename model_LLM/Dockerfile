@@ -1,9 +1,7 @@
 # Use an official Python 3.11 runtime as a parent image
 FROM python:3.11.12-slim
-
 # Set working directory in the container
 WORKDIR /app
-
 # Install system dependencies for Ollama (if needed)
 RUN apt-get update && apt-get install -y \
     curl \
@@ -15,10 +13,28 @@ COPY model_llm_14b-back.py ./
 COPY final_merged_data.csv ./
 
 # Install Python dependencies
+RUN pip install --no-cache-dir --timeout 600 \
+    flask \
+    pandas \
+    requests \
+    tabulate \
+    prometheus_client
+
+
+# Install Python dependencies
 RUN pip install --no-cache-dir --timeout 600 flask pandas requests tabulate prometheus_client 
 
-# Expose the port used by the Ollama server (default is 11434)
+
+# Expose the port
 EXPOSE 8000
 
-# Start the Ollama server in the background and then run the Python script
-CMD ["python3" ,"model_llm_14b-back.py"]
+# Set environment variables (AVANT CMD)
+#ENV FLASK_RUN_HOST=0.0.0.0
+#ENV FLASK_RUN_PORT=5004
+
+# Command to run the application (UNE SEULE FOIS)
+CMD ["python", "model_llm_14b-back.py"]
+
+
+
+

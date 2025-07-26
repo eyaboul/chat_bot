@@ -9,7 +9,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "5003:5003"
+      - "5003:5003" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -25,7 +25,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "5001:5001"
+      - "5001:5001" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -44,7 +44,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "5002:5002"
+      - "6002:5002" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -68,29 +68,34 @@ services:
       - OLLAMA_HOST=0.0.0.0:11434
     restart: unless-stopped
 
-  # Service d'initialisation Ollama (simplifié)
+  # Service d'initialisation Ollama (syntaxe curl corrigée)
   ollama_init:
-    image: ollama/ollama:latest
+    image: curlimages/curl:latest
     container_name: ollama_init_container
     networks:
       - my_app_network
     depends_on:
-      - ollama # Dépendance simple sans condition
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
+      - ollama
     command: >
       sh -c "
         echo 'Attente du démarrage d Ollama...' &&
         sleep 60 &&
-        echo 'Téléchargement du modèle...' &&
-        OLLAMA_HOST=http://ollama:11434 ollama pull qwen2:0.5b &&
-        echo 'Terminé!'
+        echo 'Test de connexion à Ollama...' &&
+        until curl -f http://ollama:11434/api/tags; do
+          echo 'Ollama pas encore prêt, attente...'
+          sleep 10
+        done &&
+        echo 'Ollama est prêt! Téléchargement du modèle qwen2:0.5b...' &&
+        curl -X POST http://ollama:11434/api/pull -H 'Content-Type: application/json' -d '{\"name\": \"qwen2:0.5b\"}' &&
+        echo 'Attente fin téléchargement...' &&
+        sleep 120 &&
+        echo 'Vérification modèle téléchargé:' &&
+        curl http://ollama:11434/api/tags &&
+        echo 'Initialisation terminée!'
       "
     restart: "no"
 
-  # Service Chatbot LLM (dépendances simplifiées)
+  # Service Chatbot LLM (ports corrigés)
   chatbot_web:
     image: chatbot-web:latest
     build:
@@ -100,12 +105,12 @@ services:
     networks:
       - my_app_network
     ports:
-      - "8000:8000"
+      - "8000:8000" # ✅ Port cohérent avec les autres services
     restart: unless-stopped
     environment:
       - OLLAMA_URL=http://ollama:11434
       - FLASK_RUN_HOST=0.0.0.0
-      - FLASK_RUN_PORT=8000
+      - FLASK_RUN_PORT=8000 # ✅ Changer de 8000 à 5004
       - SPACY_API_URL=http://spacy_service:5003
       - SKLEARN_API_URL_5001=http://sklearn-IF_service:5001
       - SKLEARN_API_URL_5002=http://sklearn-OCSVM_service:5002
@@ -113,7 +118,7 @@ services:
       - spacy_service
       - sklearn-IF_service
       - sklearn-OCSVM_service
-      - ollama # Dépendance simple
+      - ollama_init # ✅ Attendre que le modèle soit téléchargé
 
   # Service Prometheus
   prometheus:
@@ -127,7 +132,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     ports:
-      - "9090:9090"
+      - "6090:9090" # Port externe différent
     restart: unless-stopped
     depends_on:
       - spacy_service
@@ -142,7 +147,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "3000:3000"
+      - "6000:3000" # Port externe différent
     restart: unless-stopped
     depends_on:
       - prometheus

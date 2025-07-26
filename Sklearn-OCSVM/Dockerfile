@@ -15,7 +15,5 @@ RUN python -m spacy download en_core_web_md
 
 # Expose the port used by the app
 EXPOSE 5002
-
-
 # Start the Ollama server in the background and then run the Python script
 CMD ["python3" , "sklearn_one_class_Svm2.py"] 
