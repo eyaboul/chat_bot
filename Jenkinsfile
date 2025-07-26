@@ -114,17 +114,17 @@ pipeline {
                                 kubectl create deployment spacy-service --image=${DOCKER_HUB_REPO}:spacy-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 kubectl expose deployment spacy-service --port=5003 --target-port=5003 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 
-                                # Sklearn-OCSVM Service  
-                                kubectl create deployment sklearn-ocsvm-service --image=${DOCKER_HUB_REPO}:sklearn-ocsvm-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl expose deployment sklearn-ocsvm-service --port=5002 --target-port=5002 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                                
-                                # Sklearn-IF Service
+                                # Sklearn-IF Service  
                                 kubectl create deployment sklearn-if-service --image=${DOCKER_HUB_REPO}:sklearn-if-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 kubectl expose deployment sklearn-if-service --port=5001 --target-port=5001 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                                 
-                                # Chatbot-Web Service
+                                # Sklearn-OCSVM Service
+                                kubectl create deployment sklearn-ocsvm-service --image=${DOCKER_HUB_REPO}:sklearn-ocsvm-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment sklearn-ocsvm-service --port=5002 --target-port=5002 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                
+                                # Chatbot-Web Service (CORRIGER LE PORT)
                                 kubectl create deployment chatbot-web-service --image=${DOCKER_HUB_REPO}:chatbot-web-service-latest -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                                kubectl expose deployment chatbot-web-service --port=5004 --target-port=5004 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                kubectl expose deployment chatbot-web-service --port=8000 --target-port=8000 -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                             fi
                         '''
                         
@@ -261,20 +261,18 @@ pipeline {
                     • kubectl port-forward service/spacy-service 5003:5003 -n ${K8S_NAMESPACE}
                     • kubectl port-forward service/sklearn-ocsvm-service 5002:5002 -n ${K8S_NAMESPACE}
                     • kubectl port-forward service/sklearn-if-service 5001:5001 -n ${K8S_NAMESPACE}
-                    • kubectl port-forward service/chatbot-web-service 5004:5004 -n ${K8S_NAMESPACE}
+                    • kubectl port-forward service/chatbot-web-service 8000:8000 -n ${K8S_NAMESPACE}
 
                     💡 Pour accéder aux services:
                     • Spacy: http://localhost:5003
                     • Sklearn-OCSVM: http://localhost:5002
                     • Sklearn-IF: http://localhost:5001
-                    • Chatbot: http://localhost:5004
+                    • Chatbot: http://localhost:8000
                     
                     📊 Monitoring disponible:
                     • kubectl port-forward service/grafana 3000:3000 -n monitoring
                     • kubectl port-forward service/prometheus 9090:9090 -n monitoring
                     """
-                } else {
-                    echo "✅ Build réussi pour la branche: ${env.BRANCH_NAME}"
                 }
             }
         }
