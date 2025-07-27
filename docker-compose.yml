@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Service Spacy
   spacy_service:
@@ -11,7 +9,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "5003:5003"
+      - "5003:5003" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -27,7 +25,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "5001:5001"
+      - "5001:5001" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -46,7 +44,7 @@ services:
     networks:
       - my_app_network
     ports:
-      - "6002:5002"
+      - "6002:5002" # Port externe différent
     restart: unless-stopped
     environment:
       - FLASK_RUN_HOST=0.0.0.0
@@ -55,7 +53,7 @@ services:
     depends_on:
       - spacy_service
 
-  # Service Ollama
+  # NOUVEAU SERVICE : Ollama
   ollama:
     image: ollama/ollama:latest
     container_name: ollama_container
@@ -70,7 +68,7 @@ services:
       - OLLAMA_HOST=0.0.0.0:11434
     restart: unless-stopped
 
-  # Service d'initialisation Ollama
+  # Service d'initialisation Ollama (syntaxe curl corrigée)
   ollama_init:
     image: curlimages/curl:latest
     container_name: ollama_init_container
@@ -97,7 +95,7 @@ services:
       "
     restart: "no"
 
-  # Service Chatbot LLM
+  # Service Chatbot LLM (ports corrigés)
   chatbot_web:
     image: chatbot-web:latest
     build:
@@ -107,12 +105,12 @@ services:
     networks:
       - my_app_network
     ports:
-      - "8000:8000"
+      - "8000:8000" # ✅ Port cohérent avec les autres services
     restart: unless-stopped
     environment:
       - OLLAMA_URL=http://ollama:11434
       - FLASK_RUN_HOST=0.0.0.0
-      - FLASK_RUN_PORT=8000
+      - FLASK_RUN_PORT=8000 # ✅ Changer de 8000 à 5004
       - SPACY_API_URL=http://spacy_service:5003
       - SKLEARN_API_URL_5001=http://sklearn-IF_service:5001
       - SKLEARN_API_URL_5002=http://sklearn-OCSVM_service:5002
@@ -120,9 +118,9 @@ services:
       - spacy_service
       - sklearn-IF_service
       - sklearn-OCSVM_service
-      - ollama_init
+      - ollama_init # ✅ Attendre que le modèle soit téléchargé
 
-  # Service Prometheus (avec volume de persistance)
+  # Service Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: my_prometheus
@@ -130,12 +128,11 @@ services:
       - my_app_network
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus # ✅ VOLUME POUR PERSISTANCE
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     ports:
-      - "6090:9090"
+      - "6090:9090" # Port externe différent
     restart: unless-stopped
     depends_on:
       - spacy_service
@@ -143,36 +140,16 @@ services:
       - sklearn-OCSVM_service
       - chatbot_web
 
-  # Service Grafana (avec volume de persistance)
+  # Service Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: my_grafana
     networks:
       - my_app_network
     ports:
-      - "6000:3000"
+      - "6000:3000" # Port externe différent
     volumes:
-      - grafana-data:/var/lib/grafana # ✅ VOLUME POUR DASHBOARDS
-    environment:
-      # Configuration optionnelle pour éviter la perte des dashboards
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-    restart: unless-stopped
-    depends_on:
-      - prometheus
-
-  # ✅ Service Node Exporter pour métriques système
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node_exporter
-    command:
-      - "--path.rootfs=/host"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    networks:
-      - my_app_network
-    ports:
-      - "9100:9100"
-    volumes:
-      - "/:/host:ro,rslave"
+      - grafana-data:/var/lib/grafana
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -180,10 +157,6 @@ services:
 # Définition des volumes Docker
 volumes:
   ollama_data:
-    driver: local
-  grafana-data: # ✅ VOLUME POUR LES DASHBOARDS GRAFANA
-    driver: local
-  prometheus-data: # ✅ VOLUME POUR LES DONNÉES PROMETHEUS
     driver: local
 
 # Définition du réseau Docker personnalisé
