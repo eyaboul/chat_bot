@@ -12,13 +12,18 @@ spec:
     metadata:
       labels:
         app: spacy-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5003"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: spacy-service
-          image: eyaboulaaba/pfe:spacy-service  # Image depuis Docker Hub
+          image: eyaboulaaba/pfe:spacy-service-latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5003
+              name: http
           env:
             - name: FLASK_RUN_HOST
               value: "0.0.0.0"
@@ -30,6 +35,10 @@ kind: Service
 metadata:
   name: spacy-service
   namespace: pfe-app
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5003"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: spacy-service
@@ -37,4 +46,7 @@ spec:
     - protocol: TCP
       port: 5003
       targetPort: 5003
+      name: http
   type: ClusterIP
+
+

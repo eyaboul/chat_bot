@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: spacy-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5003"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: spacy-service

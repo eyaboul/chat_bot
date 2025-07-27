@@ -120,7 +120,7 @@ services:
       - sklearn-OCSVM_service
       - ollama_init # ✅ Attendre que le modèle soit téléchargé
 
-  # Service Prometheus
+  # ✅ Service Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: my_prometheus
@@ -132,7 +132,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     ports:
-      - "6090:9090" # Port externe différent
+      - "6090:9090"
     restart: unless-stopped
     depends_on:
       - spacy_service
@@ -140,14 +140,37 @@ services:
       - sklearn-OCSVM_service
       - chatbot_web
 
-  # Service Grafana
-  grafana:
+  # ✅ Service cAdvisor (métriques conteneurs Docker)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    networks:
+      - my_app_network
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    privileged: true
+
+  # ✅ Service Grafana
+  my_grafana:
     image: grafana/grafana:latest
     container_name: my_grafana
     networks:
       - my_app_network
     ports:
-      - "6000:3000" # Port externe différent
+      - "6000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -155,6 +178,8 @@ services:
 # Définition des volumes Docker
 volumes:
   ollama_data:
+    driver: local
+  grafana_data:
     driver: local
 
 # Définition du réseau Docker personnalisé

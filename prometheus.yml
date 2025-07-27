@@ -1,25 +1,96 @@
 # prometheus.yml
 global:
-  scrape_interval: 15s # Prometheus va tenter de collecter les métriques toutes les 15 secondes
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
+  # Prometheus lui-même
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090'] # Les métriques de Prometheus lui-même
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
 
-  - job_name: 'spacy_service'
-    static_configs:
-      - targets: ['spacy_service:5003'] # Nom du service Docker Compose et son port interne
+  # ✅ KUBERNETES PODS (vos services PFE)
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+        kubeconfig_file: ~/.kube/config
+    relabel_configs:
+      # Garder seulement les pods avec annotation prometheus.io/scrape=true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Utiliser le port spécifié dans l'annotation prometheus.io/port
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: ${__meta_kubernetes_pod_ip}:${1}
+      # Utiliser le chemin spécifié dans l'annotation prometheus.io/path
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      # Ajouter des labels utiles
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod_name
 
-  - job_name: 'sklearn_ocsvm_service'
-    static_configs:
-      - targets: ['sklearn-OCSVM_service:5002'] # Nom du service Docker Compose et son port interne
+  # ✅ NODE EXPORTER (métriques système cluster)
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+        kubeconfig_file: ~/.kube/config
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        target_label: __address__
+        replacement: '${1}:9100'
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: kubernetes_io_hostname
 
-  - job_name: 'sklearn_if_service'
-    static_configs:
-      - targets: ['sklearn-IF_service:5001'] # Si vous avez un service Isolation Forest
-                                                # (Port 5001 pour IF est un exemple basé sur des setups précédents)
+  # ✅ CADVISOR (métriques conteneurs - requis pour le dashboard)
+  - job_name: 'kubernetes-cadvisor'
+    kubernetes_sd_configs:
+      - role: node
+        kubeconfig_file: ~/.kube/config
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: kubernetes_io_hostname
 
-  - job_name: 'chatbot_web_service'
+  # ✅ CADVISOR DIRECT (depuis DaemonSet)
+  - job_name: 'cadvisor-direct'
+    kubernetes_sd_configs:
+      - role: pod
+        kubeconfig_file: ~/.kube/config
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: cadvisor
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: ${__meta_kubernetes_pod_ip}:${1}
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: kubernetes_io_hostname
+
+  # ✅ Grafana (Docker Compose)
+  - job_name: 'grafana'
     static_configs:
-      - targets: ['chatbot_web:8000'] # Si votre front-end Flask du chatbot expose aussi des métriques
+      - targets: ['my_grafana:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s

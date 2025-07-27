@@ -1,37 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sklearn-if-service
+  name: chatbot-web
   namespace: pfe-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sklearn-if-service
+      app: chatbot-web
   template:
     metadata:
       labels:
-        app: sklearn-if-service
+        app: chatbot-web
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "5001"
+        prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
       containers:
-      - name: sklearn-if-service
-        image: eyaboulaaba/pfe:sklearn-if-service-latest
+      - name: chatbot-web
+        image: eyaboulaaba/pfe:chatbot-web-latest
         ports:
-        - containerPort: 5001
+        - containerPort: 8000
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: sklearn-if-service
+  name: chatbot-web
   namespace: pfe-app
 spec:
   selector:
-    app: sklearn-if-service
+    app: chatbot-web
   ports:
-  - port: 5001
-    targetPort: 5001
+  - port: 8000
+    targetPort: 8000
   type: ClusterIP
