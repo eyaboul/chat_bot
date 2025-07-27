@@ -148,8 +148,6 @@ services:
       - my_app_network
     ports:
       - "6000:3000" # Port externe différent
-    volumes:
-      - grafana-data:/var/lib/grafana
     restart: unless-stopped
     depends_on:
       - prometheus
