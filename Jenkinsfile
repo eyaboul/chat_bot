@@ -42,9 +42,28 @@ pipeline {
                             
                             // Login avant chaque push
                             sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+
+                            // Fonction retry pour push
+                            def retryPush = { imageTag ->
+                                int maxRetries = 3
+                                int attempt = 0
+                                boolean pushed = false
+                                while (!pushed && attempt < maxRetries) {
+                                    attempt++
+                                    try {
+                                        sh "docker push ${imageTag}"
+                                        pushed = true
+                                    } catch (Exception e) {
+                                        echo "⚠️ Push failed for ${imageTag}, attempt ${attempt} of ${maxRetries}"
+                                        if (attempt == maxRetries) {
+                                            error "❌ Push failed after ${maxRetries} attempts for ${imageTag}"
+                                        }
+                                        sleep 10
+                                    }
+                                }
+                            }
                             
-                            
-                            sh "docker push ${timestampTag}"
+                            retryPush(timestampTag)
                             
                             // Tag latest
                             sh "docker tag ${timestampTag} ${latestTag}"
@@ -52,8 +71,7 @@ pipeline {
                             // Re-login pour le deuxième push
                             sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                             
-                            // Push latest
-                            sh "docker push ${latestTag}"
+                            retryPush(latestTag)
                             
                             echo "✅ ${serviceName} completed"
                         }
