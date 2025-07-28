@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus
-  namespace: pfe-app  # ✅ CHANGÉ
+  namespace: pfe-app
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -11,16 +11,15 @@ metadata:
 rules:
 - apiGroups: [""]
   resources:
-  - nodes
-  - nodes/proxy
-  - services
-  - endpoints
-  - pods
+    - nodes
+    - nodes/proxy
+    - services
+    - endpoints
+    - pods
   verbs: ["get", "list", "watch"]
-- apiGroups:
-  - extensions
+- apiGroups: ["extensions"]
   resources:
-  - ingresses
+    - ingresses
   verbs: ["get", "list", "watch"]
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]
@@ -36,13 +35,101 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus
-  namespace: pfe-app  # ✅ CHANGÉ
+  namespace: pfe-app
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: pfe-app
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+        scrape_interval: 5s
+
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: ${__meta_kubernetes_pod_ip}:${1}
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: kubernetes_pod_name
+
+      - job_name: 'kubernetes-nodes'
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - source_labels: [__address__]
+            regex: '(.*):10250'
+            target_label: __address__
+            replacement: '${1}:9100'
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: kubernetes_io_hostnameadmin "admin"
+
+      - job_name: 'kubernetes-metrics-server'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_k8s_app]
+            action: keep
+            regex: metrics-server
+          - source_labels: [__address__]
+            regex: '(.*):4443'
+            target_label: __address__
+            replacement: '${1}:4443'
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: kubernetes_pod_name
+
+      - job_name: 'kubernetes-kubelet'
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: kubernetes_io_hostname
+
+      - job_name: 'grafana'
+        static_configs:
+          - targets: ['grafana:3000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: pfe-app  # ✅ CHANGÉ
+  namespace: pfe-app
 spec:
   replicas: 1
   selector:
@@ -74,7 +161,6 @@ spec:
       volumes:
       - name: prometheus-config-volume
         configMap:
-          defaultMode: 420
           name: prometheus-config
       - name: prometheus-storage-volume
         emptyDir: {}
@@ -83,7 +169,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: pfe-app  # ✅ CHANGÉ
+  namespace: pfe-app
   labels:
     app: prometheus
 spec:
@@ -94,96 +180,3 @@ spec:
     targetPort: 9090
     nodePort: 30090
   type: NodePort
----
-# filepath: c:\Users\Hani\OneDrive\Desktop\pfe\prometheus.yml
-
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-
-scrape_configs:
-  # Prometheus lui-même
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-    scrape_interval: 5s
-
-  # ✅ KUBERNETES PODS (vos services PFE)
-  - job_name: 'kubernetes-pods'
-    kubernetes_sd_configs:
-      - role: pod
-        kubeconfig_file: ~/.kube/config
-    relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        target_label: __address__
-        regex: (.+)
-        replacement: ${__meta_kubernetes_pod_ip}:${1}
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
-        regex: (.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        target_label: kubernetes_namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        target_label: kubernetes_pod_name
-
-  # ✅ NODE EXPORTER (métriques système cluster)
-  - job_name: 'kubernetes-nodes'
-    kubernetes_sd_configs:
-      - role: node
-        kubeconfig_file: ~/.kube/config
-    relabel_configs:
-      - source_labels: [__address__]
-        regex: '(.*):10250'
-        target_label: __address__
-        replacement: '${1}:9100'
-      - source_labels: [__meta_kubernetes_node_name]
-        target_label: kubernetes_io_hostname
-
-  # ✅ METRICS-SERVER (au lieu de cAdvisor)
-  - job_name: 'kubernetes-metrics-server'
-    kubernetes_sd_configs:
-      - role: pod
-        kubeconfig_file: ~/.kube/config
-    relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_label_k8s_app]
-        action: keep
-        regex: metrics-server
-      - source_labels: [__address__]
-        regex: '(.*):4443'
-        target_label: __address__
-        replacement: '${1}:4443'
-      - source_labels: [__meta_kubernetes_pod_name]
-        target_label: kubernetes_pod_name
-
-  # ✅ KUBELET METRICS (alternative pour conteneurs)
-  - job_name: 'kubernetes-kubelet'
-    kubernetes_sd_configs:
-      - role: node
-        kubeconfig_file: ~/.kube/config
-    scheme: https
-    tls_config:
-      insecure_skip_verify: true
-    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-    relabel_configs:
-      - action: labelmap
-        regex: __meta_kubernetes_node_label_(.+)
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
-        target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics
-      - source_labels: [__meta_kubernetes_node_name]
-        target_label: kubernetes_io_hostname
-
-  # ✅ Grafana (Docker Compose)
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['my_grafana:3000']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
