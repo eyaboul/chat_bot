@@ -5,4 +5,4 @@ FROM jenkins/jenkins:lts
 
 # Jenkins écoute sur le port 8080 (web) et 50000 (agent)
 EXPOSE 8080 50000 
-# hi 
+# hel
