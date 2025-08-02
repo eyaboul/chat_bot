@@ -5,8 +5,6 @@ import pandas as pd # Needed for displaying data, not for direct loading
 
 
 
-
-# --- Configuration for Streamlit ---
 # IMPORTANT: This URL should point to your Flask backend's address and port.
 # If running Flask on localhost:8000, this is correct.
 FLASK_BACKEND_URL = "http://magical_wozniak:8000"
