@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --timeout 600 \
     prometheus_client
 
 
-# Install Python
+# Install Python dependencies
 RUN pip install --no-cache-dir --timeout 600 flask pandas requests tabulate prometheus_client 
 
 
